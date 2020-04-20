@@ -2,7 +2,6 @@ import json
 import boto3
 from pprint import pprint
 import logging
-
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
 
@@ -15,10 +14,8 @@ def read_input(bucket, key):
     paragraph = str(file["Body"].read())
     return paragraph
 
-
 def txt_preprocessing(paragraph):
-    return paragraph.replace("\\n", " ")
-
+    return paragraph.replace('\\n', ' ')
 
 def extract_phrase(paragraph):
     """filter for key phrase with 0.9 score or above based on AWS comprehend"""
@@ -30,6 +27,12 @@ def extract_phrase(paragraph):
     LOG.info(f"output - list of key phrases: {output_lst}")
     return output_lst
 
+def write_to_dynamo(keyphrases):
+    """write output to dynamodb"""
+    dynamodb=boto3.resource('dynamodb')
+    table=dynamodb.Table('skill')
+    response = table.put_item(Item={'guid':'1', 'list':keyphrases})
+    
 
 def lambda_handler(event, context):
     """extract key phrases using aws comprehend"""
@@ -38,6 +41,5 @@ def lambda_handler(event, context):
     paragraph = read_input(bucket, key)
     para_processed = txt_preprocessing(paragraph)
     keyphrases = extract_phrase(para_processed)
-    dynamodb = boto3.client("dynamodb")
-    dynamodb.put_item(TableName="skill", Item={"guid": keyphrases})
+    write_to_dynamo(keyphrases)
     return keyphrases
