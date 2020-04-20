@@ -9,10 +9,15 @@ LOG.setLevel(logging.DEBUG)
 
 def read_input(bucket, key):
     """read input from s3"""
+    s3 = boto3.client("s3")
     LOG.info(f"reading from {bucket}")
     file = s3.get_object(Bucket=bucket, Key=key)
     paragraph = str(file["Body"].read())
     return paragraph
+
+
+def txt_preprocessing(paragraph):
+    return paragraph.replace("\\n", " ")
 
 
 def extract_phrase(paragraph):
@@ -27,9 +32,12 @@ def extract_phrase(paragraph):
 
 
 def lambda_handler(event, context):
-    s3 = boto3.client("s3")
+    """extract key phrases using aws comprehend"""
     bucket = "lambda-comprehend"
     key = "job_desc.txt"
-    file = s3.get_object(Bucket=bucket, Key=key)
-    paragraph = str(file["Body"].read())
-    return extract_phrase(paragraph)
+    paragraph = read_input(bucket, key)
+    para_processed = txt_preprocessing(paragraph)
+    keyphrases = extract_phrase(para_processed)
+    dynamodb = boto3.client("dynamodb")
+    dynamodb.put_item(TableName="skill", Item={"guid": keyphrases})
+    return keyphrases
